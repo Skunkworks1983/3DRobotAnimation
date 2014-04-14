@@ -1,0 +1,8 @@
+#BoneID ParentID VectorA meshfile
+0	-1	0.000,0.000,0.000	model/2014-chassis-complex.stl	nrmcmp	scale,0.0394,0.0394,0.0394	0,-0.5,0	90,1,0,0	180,0,0,1
+1	0	0.000,1.000,0.000	model/2014-upper-assembly-complex.stl	nrmcmp	scale,0.0394,0.0394,0.0394	0,-1.1,0	90,0,1,0	90,1,0,0
+2	1	0.305,23.955,0.00	model/2014-ball-launcher.stl	nrmcmp	scale,0.0394,0.0394,0.0394	12,-31,0	90,1,0,0	-60.0,0,1,0	-.125,0,0.336
+3	2	0.305,23.955,0.00	model/2014-top-jaw.stl	nrmcmp	scale,0.0394,0.0394,0.0394	0,0,0	90,0,0,1
+4	2	14.05,35.05,0.000	model/2014-catapult-arm.stl	nrmcmp	scale,0.0394,0.0394,0.0394	-3.95,-24.25,0	180,1,0,0	-90,1,0,0	-9.0,0,1,0
+5	4	12.50,33.00,0.000	model/2014-ball.stl	0.5,0,1.25	scale,12.8,12.8,12.8
+6	-1	0,0,0	model/2014-field.stl	nrmcmp	scale,0.0375,0.0375,0.0375	90,1,0,0
