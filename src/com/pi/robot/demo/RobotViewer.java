@@ -12,8 +12,9 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.PixelFormat;
 
-import com.pi.common.debug.PILoggerPane;
-import com.pi.common.debug.PIResourceViewer;
+import com.pi.debug.PILoggerPane;
+import com.pi.debug.PIResourceViewer;
+
 import com.pi.robot.Bone;
 import com.pi.robot.Skeleton;
 import com.pi.robot.overlay.TextOverlay;
@@ -51,8 +52,10 @@ public class RobotViewer {
 		helpPane.getLogOutput().println("Q,E: Controls zoom");
 		helpPane.getLogOutput().println("W,A,S,D: Controls camera");
 		helpPane.getLogOutput().println();
-		helpPane.getLogOutput().println("                         ~By Westin Miller");
-		helpPane.getLogOutput().println(" --- 3D Robot Visualization for Team 1983 --- ");
+		helpPane.getLogOutput().println(
+				"                         ~By Westin Miller");
+		helpPane.getLogOutput().println(
+				" --- 3D Robot Visualization for Team 1983 --- ");
 		System.setOut(loggerPane.getLogOutput());
 		Skeleton sk = new Skeleton(new File("model/mesh.skl"));
 		System.setOut(orig);
