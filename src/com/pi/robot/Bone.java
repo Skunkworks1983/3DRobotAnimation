@@ -9,10 +9,13 @@ import java.util.Map;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 
+import com.pi.robot.physics.BoundingArea;
+
 import com.pi.math.Quaternion;
 import com.pi.math.TransMatrix;
 import com.pi.math.Vector3D;
 import com.pi.robot.mesh.Mesh;
+import com.pi.robot.physics.AABB;
 import com.pi.robot.robot.NotificationBubble;
 import com.pi.robot.robot.RobotStateManager;
 
@@ -35,13 +38,18 @@ public class Bone {
 	public Map<Vector3D, NotificationBubble> notifications = new HashMap<Vector3D, NotificationBubble>();
 
 	public Vector3D additional = new Vector3D();
+	public BoundingArea baseBoundingBox;
+	public BoundingArea boundingBox = new AABB();
 
-	public Bone(Vector3D pos) {
-		this(new Vector3D(), pos);
+	private int id;
+
+	public Bone(int id, Vector3D pos) {
+		this(id, new Vector3D(), pos);
 	}
 
-	public Bone(Vector3D base, Vector3D pos) {
+	public Bone(int id, Vector3D base, Vector3D pos) {
 		this.base = base;
+		this.id = id;
 
 		Vector3D u = new Vector3D(0, 0, 1);
 		Vector3D v = pos.subtract(base).clone().normalize();
@@ -57,8 +65,8 @@ public class Bone {
 		}
 	}
 
-	public Bone(Bone parent, Vector3D base, Vector3D pos) {
-		this(parent.getLocalToWorld().inverse().multiply(base)
+	public Bone(int id, Bone parent, Vector3D base, Vector3D pos) {
+		this(id, parent.getLocalToWorld().inverse().multiply(base)
 				.subtract(new Vector3D(0, 0, parent.length)), parent
 				.getLocalToWorld().inverse().multiply(pos)
 				.subtract(new Vector3D(0, 0, parent.length)));
@@ -79,12 +87,8 @@ public class Bone {
 	}
 
 	public void calculate() {
-		if (transformLocked) {
-			transformRequest = true;
-			return;
-		}
 		calcRotation = baseRotation.clone().multiply(bonusRotation);
-		if (parent != null) {
+		if (parent != null && attached) {
 			Vector3D parentOffset = new Vector3D(0, 0, parent.length).add(base);
 			boneStart.set(parent.localToWorld.multiply(parentOffset));
 			// Parent matrix * local matrix
@@ -97,6 +101,14 @@ public class Bone {
 					boneStart.z);
 		}
 		boneEnd = localToWorld.multiply(new Vector3D(0, 0, length));
+		if (baseBoundingBox == null && mesh != null) {
+			baseBoundingBox = mesh.boundingBox.copy();
+		}
+		if (baseBoundingBox != null) {
+			boundingBox = baseBoundingBox.copy();
+			if (id != RobotStateManager.FIELD_ID)
+				boundingBox.transform(localToWorld);
+		}
 	}
 
 	public void calculateRecursive() {
@@ -131,8 +143,7 @@ public class Bone {
 	}
 
 	boolean vboCreated = false;
-	private boolean transformLocked;
-	private boolean transformRequest;
+	public boolean attached = true;
 
 	public void draw() {
 		if (!visible) {
@@ -140,9 +151,6 @@ public class Bone {
 		}
 		if (mesh == null) {
 			return;
-		}
-		if (transformRequest && !transformLocked) {
-			calculate();
 		}
 		if (/* mesh.getIndicies() != null && */!vboCreated) {
 			mesh.loadToGPU();
@@ -161,7 +169,27 @@ public class Bone {
 		GL11.glPopMatrix();
 	}
 
-	public void lockTransform(boolean state) {
-		transformLocked = state;
+	public void setAttached(boolean attached) {
+		this.attached = attached;
+		calculate();
+	}
+
+	public boolean collidesRecursive(BoundingArea b, int... ignore) {
+		if (boundingBox != null) {
+			for (int j : ignore) {
+				if (j == id) {
+					return false;
+				}
+			}
+			if (boundingBox.collides(b)) {
+				return true;
+			}
+		}
+		for (Bone bone : children) {
+			if (bone.attached && bone.collidesRecursive(b, ignore)) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

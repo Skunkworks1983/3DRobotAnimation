@@ -19,12 +19,14 @@ import org.lwjgl.opengl.GL15;
 
 import com.pi.math.TransMatrix;
 import com.pi.math.Vector3D;
+import com.pi.robot.physics.AABB;
 import com.pi.robot.robot.RobotStateManager;
 
 public class Mesh {
 	// private List<MeshVertex> verticies;
 	// private List<Integer> indicies;
 	private int polygonSize;
+	public AABB boundingBox = new AABB();
 
 	public FloatBufferColor defaultColor;
 
@@ -52,6 +54,7 @@ public class Mesh {
 			}
 			for (int i = 0; i < verticies.size(); i++) {
 				MeshVertex mV = verticies.get(i);
+				boundingBox.include(mV.getPosition());
 				vertexBuffer.put(mV.getPosition().x);
 				vertexBuffer.put(mV.getPosition().y);
 				vertexBuffer.put(mV.getPosition().z);
@@ -257,6 +260,7 @@ public class Mesh {
 	}
 
 	public void apply(TransMatrix m) {
+		boundingBox = new AABB();
 		TransMatrix normalz = new TransMatrix(m).setTranslation(0, 0, 0);
 		for (int i = 0; i < vertexBuffer.limit() / 3.0; i++) {
 			int head = i * 3;
@@ -266,6 +270,7 @@ public class Mesh {
 					normalBuffer.get(head + 1), normalBuffer.get(head + 2));
 			pos = m.multiply(pos);
 			norm = normalz.multiply(norm);
+			boundingBox.include(pos);
 			vertexBuffer.put(head, pos.x);
 			vertexBuffer.put(head + 1, pos.y);
 			vertexBuffer.put(head + 2, pos.z);

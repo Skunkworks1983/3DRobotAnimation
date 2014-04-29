@@ -59,11 +59,11 @@ public class Skeleton {
 					endPos.y += 10.0;
 					Bone b;
 					if (parent < 0) {
-						b = new Bone(startPos, endPos);
+						b = new Bone(id, startPos, endPos);
 						rootBones.add(b);
 						b.calculate();
 					} else {
-						b = new Bone(bones.get(parent), startPos, endPos);
+						b = new Bone(id, bones.get(parent), startPos, endPos);
 					}
 					if (chunks.length >= 4
 							&& !chunks[3].equalsIgnoreCase("null")) {

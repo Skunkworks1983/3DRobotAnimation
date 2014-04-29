@@ -5,18 +5,19 @@ import java.io.IOException;
 import java.nio.FloatBuffer;
 
 import org.lwjgl.BufferUtils;
+import org.lwjgl.input.Keyboard;
 
 import com.pi.math.Quaternion;
 import com.pi.math.TransMatrix;
 import com.pi.math.Vector3D;
 import com.pi.robot.Bone;
 import com.pi.robot.Skeleton;
-import com.pi.robot.demo.DemoMode;
 import com.pi.robot.mesh.FloatBufferColor;
 import com.pi.robot.mesh.Mesh;
 import com.pi.robot.overlay.TextOverlay;
 import com.pi.robot.overlay.TextOverlay.Corner;
 import com.pi.robot.overlay.TimedMessage;
+import com.pi.robot.physics.BallController;
 
 import edu.wpi.first.wpilibj.networktables.NetworkTable;
 
@@ -27,6 +28,7 @@ public class RobotStateManager {
 	public static final int PTERODACTYL_ID = 2;
 	public static final int DRIVEBASE_ID = 0;
 	public static final int TOPPER_ID = 1;
+	public static final int FIELD_ID = 6;
 
 	public static final FloatBufferColor defaultColor = new FloatBufferColor(
 			0.75f, 0.75f, 0.75f);
@@ -65,11 +67,28 @@ public class RobotStateManager {
 
 	public float x, y, yaw = 180;
 	public boolean driveMode;
+	public BallController ballController;
 
 	public RobotStateManager(Skeleton sk, final TextOverlay textOverlay) {
 		this.sk = sk;
 		table = NetworkTable.getTable("Robot");
-		DemoMode.startDemoMode(table, sk);
+		ballController = new BallController(sk);
+		(new Thread(new Runnable() {
+
+			@Override
+			public void run() {
+				long last = System.currentTimeMillis();
+				while (true) {
+					long delta = System.currentTimeMillis() - last;
+					ballController.stepControl((float) delta / 1000f);
+					try {
+						Thread.sleep(100);
+					} catch (Exception e) {
+					}
+				}
+			}
+		})).start();
+		// DemoMode.startDemoMode(table, sk, ballController);
 		textOverlay.setCornerSize(Corner.UP_RIGHT, 5);
 		try {
 			listener = new ConsoleListener(1983);
@@ -109,6 +128,28 @@ public class RobotStateManager {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	public void doStuff() {
+		if (Keyboard.isKeyDown(Keyboard.KEY_SPACE)) {
+			ballController.launch(new Vector3D(10, 10, 10));
+		}
+	}
+
+	public boolean robotCollides(float x, float y, float yaw) {
+		Bone driveBase = sk.getBone(DRIVEBASE_ID);
+		Bone field = sk.getBone(FIELD_ID);
+		if (driveBase == null || field == null) {
+			return false;
+		}
+		driveBase.base.set(x, 0, -y);
+		driveBase.setYPR(((float) (yaw * Math.PI) / 180f), 0, 0);
+		driveBase.calculateRecursive();
+		boolean res = driveBase.collidesRecursive(field.boundingBox, FIELD_ID,
+				BALL_ID);
+		driveBase.base.set(this.x, 0, -this.y);
+		driveBase.setYPR(((float) (this.yaw * Math.PI) / 180f), 0, 0);
+		return res;
 	}
 
 	private void colorAlliance(FloatBufferColor color) {

@@ -1,4 +1,6 @@
-package com.pi.robot.demo;
+package com.pi.robot.robot;
+
+import com.pi.robot.physics.BallController;
 
 import com.pi.math.BezierCurve;
 import com.pi.math.Vector3D;
@@ -100,19 +102,13 @@ public class DemoMode {
 			throws InterruptedException {
 		Bone ball = sk.getBone(5);
 		if (ball != null) {
+			ball.setAttached(true);
 			do {
-				ball.additional.x = ball.additional.x
-						+ (Math.abs(target.x - ball.additional.x) > speed ? Math
-								.signum(target.x - ball.additional.x) * speed
-								: (target.x - ball.additional.x));
-				ball.additional.y = ball.additional.y
-						+ (Math.abs(target.y - ball.additional.y) > speed ? Math
-								.signum(target.y - ball.additional.y) * speed
-								: (target.y - ball.additional.y));
-				ball.additional.z = ball.additional.z
-						+ (Math.abs(target.z - ball.additional.z) > speed ? Math
-								.signum(target.z - ball.additional.z) * speed
-								: (target.z - ball.additional.z));
+				Vector3D dir = target.clone().subtract(ball.additional);
+				if (dir.magnitude() > speed) {
+					dir.normalize().multiply(speed);
+				}
+				ball.additional.add(dir);
 				Thread.sleep(50L);
 			} while (Math.abs(ball.additional.x - target.x) > 0.01
 					|| Math.abs(ball.additional.y - target.y) > 0.01
@@ -120,9 +116,11 @@ public class DemoMode {
 		}
 	}
 
-	public static void startDemoMode(final NetworkTable table, final Skeleton sk) {
+	public static void startDemoMode(final NetworkTable table,
+			final Skeleton sk, final BallController ballController) {
 		new Thread(new Runnable() {
 			public void run() {
+				final Bone ball = sk.getBone(5);
 				Runnable resetShooter = new Runnable() {
 					public void run() {
 						try {
@@ -158,7 +156,12 @@ public class DemoMode {
 				Runnable shootBall = new Runnable() {
 					public void run() {
 						try {
-							tweenBall(sk, new Vector3D(200f, 0f, -75F), 10f);
+							table.putBoolean("hasBall", true);
+							ball.visible = true;
+							ballController.launch(new Vector3D(25f, 25f,
+									25F));
+							Thread.sleep(750L);
+							Thread.sleep(250L);
 						} catch (InterruptedException e) {
 						}
 					}
@@ -180,7 +183,7 @@ public class DemoMode {
 						System.out.println("Move ptero");
 						Thread zPtero = new Thread(zeroPtero);
 						zPtero.start();
-						
+
 						traverseCurve(table, turnToCollect, 1);
 						table.putNumber("YAW", COLLECT_YAW);
 						table.putNumber("DBX", COLLECT_X);
@@ -195,7 +198,6 @@ public class DemoMode {
 
 						Thread.sleep(1500);
 						table.putNumber("collectorMotorState", 0);
-						Bone ball = sk.getBone(5);
 						if (ball != null) {
 							ball.additional = new Vector3D(30, 0, 0);
 						}
@@ -224,22 +226,12 @@ public class DemoMode {
 						sevenPtero.run();
 						table.putBoolean("jawsClosed", false);
 						Thread.sleep(100L);
-						if (ball != null) {
-							ball.lockTransform(true);
-						}
-						Thread.sleep(100L);
 						table.putBoolean("shooterLatched", true);
 						table.putNumber("shooterStrap", 1.1);
 						table.putBoolean("shooterLatched", false);
-//						Thread shootDaShot = new Thread(shootBall);
-//						shootDaShot.start();
+						// Thread shootDaShot = new Thread(shootBall);
+						// shootDaShot.start();
 						shootBall.run();
-						table.putBoolean("hasBall", false);
-						Thread.sleep(750L);
-						if (ball != null) {
-							ball.lockTransform(false);
-						}
-						Thread.sleep(250L);
 					} catch (Exception e) {
 					}
 				}

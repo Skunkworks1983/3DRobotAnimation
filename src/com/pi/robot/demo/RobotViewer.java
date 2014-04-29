@@ -12,12 +12,16 @@ import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.PixelFormat;
 
+import com.pi.robot.physics.BoundingArea;
+
 import com.pi.debug.PILoggerPane;
 import com.pi.debug.PIResourceViewer;
-
+import com.pi.math.Vector3D;
 import com.pi.robot.Bone;
 import com.pi.robot.Skeleton;
 import com.pi.robot.overlay.TextOverlay;
+import com.pi.robot.physics.AABB;
+import com.pi.robot.physics.CompositeArea;
 import com.pi.robot.robot.RobotStateManager;
 
 import edu.wpi.first.wpilibj.networktables.NetworkTable;
@@ -65,6 +69,22 @@ public class RobotViewer {
 
 		init();
 
+		// CFG Field BB
+		Bone bj = sk.getBone(RobotStateManager.FIELD_ID);
+		if (bj != null) {
+			AABB ob = new AABB(new Vector3D(-140, 0, -305), new Vector3D(140,
+					200, 305));
+			bj.baseBoundingBox = new CompositeArea(new AABB(new Vector3D(
+					ob.min.x - 100, ob.min.y, ob.min.z), new Vector3D(ob.min.x,
+					ob.max.y, ob.max.z)), new AABB(new Vector3D(ob.max.x,
+					ob.min.y, ob.min.z), new Vector3D(ob.max.x + 100, ob.max.y,
+					ob.max.z)),
+					new AABB(new Vector3D(ob.min.x, ob.min.y, ob.min.z - 100),
+							new Vector3D(ob.max.x, ob.max.y, ob.min.z)),
+					new AABB(new Vector3D(ob.min.x, ob.min.y, ob.max.z),
+							new Vector3D(ob.max.x, ob.max.y, ob.max.z + 100)));
+		}
+
 		Camera3rdPerson cam = new Camera3rdPerson();
 
 		float robotVel = 0;
@@ -110,10 +130,18 @@ public class RobotViewer {
 			for (Bone b : sk.getRootBone()) {
 				drawBone(b);
 			}
+			GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_LINE);
+			// for (Bone b : sk.getRootBone()) {
+			// boneBB(b);
+			// }
+
 			GL11.glPolygonMode(GL11.GL_FRONT_AND_BACK, GL11.GL_FILL);
 
 			overlay();
-
+			
+			robot.doStuff();
+			System.out.println(sk.getBone(RobotStateManager.BALL_ID).additional);
+			
 			Display.update();
 			Display.sync(60);
 			robot.update();
@@ -130,24 +158,50 @@ public class RobotViewer {
 				isToggleWireframe = false;
 			}
 
+			float tYaw = robot.yaw;
 			if (Keyboard.isKeyDown(Keyboard.KEY_J)) {
-				robot.yaw += robotVel;
+				tYaw += robotVel;
 				lastDriveTime = System.currentTimeMillis();
 			} else if (Keyboard.isKeyDown(Keyboard.KEY_L)) {
-				robot.yaw -= robotVel;
+				tYaw -= robotVel;
 				lastDriveTime = System.currentTimeMillis();
 			}
 			if (Keyboard.isKeyDown(Keyboard.KEY_I)) {
 				robotVel++;
-				robot.x += robotVel * Math.cos(Math.toRadians(robot.yaw));
-				robot.y += robotVel * Math.sin(Math.toRadians(robot.yaw));
-				lastDriveTime = System.currentTimeMillis();
 			} else if (Keyboard.isKeyDown(Keyboard.KEY_K)) {
 				robotVel--;
-				robot.x += robotVel * Math.cos(Math.toRadians(robot.yaw));
-				robot.y += robotVel * Math.sin(Math.toRadians(robot.yaw));
+			} else {
+				robotVel *= 0.75f;
+				if (Math.abs(robotVel) < 0.4f) {
+					robotVel = 0;
+				}
+			}
+			float tX = robot.x
+					+ (float) (robotVel * Math.cos(Math.toRadians(tYaw)));
+			float tY = robot.y
+					+ (float) (robotVel * Math.sin(Math.toRadians(tYaw)));
+			boolean quit = true;
+			do {
+				if (!robot.robotCollides(tX, tY, tYaw)) {
+					break;
+				} else if (!robot.robotCollides(tX, robot.y, tYaw)) {
+					tY = robot.y;
+					tYaw += robotVel * Math.cos(Math.toRadians(tYaw));
+				} else if (!robot.robotCollides(robot.x, tY, tYaw)) {
+					tX = robot.x;
+					tYaw += robotVel * Math.sin(Math.toRadians(tYaw));
+				} else {
+					tY = robot.y;
+					tYaw = robot.yaw;
+					tX = robot.x;
+				}
+			} while (!quit);
+			if (tX != robot.x || tY != robot.y || tYaw != robot.yaw) {
 				lastDriveTime = System.currentTimeMillis();
 			}
+			robot.x = tX;
+			robot.y = tY;
+			robot.yaw = tYaw;
 
 			if (Keyboard.isKeyDown(Keyboard.KEY_T)) {
 				first = true;
@@ -184,6 +238,56 @@ public class RobotViewer {
 		// GL11.glRotatef(180, 1, 0, 0);
 		textOverlay.renderOverlay(width, height);
 		GL11.glDisable(GL11.GL_TEXTURE_2D);
+	}
+
+	private void renderBB(BoundingArea bb) {
+		if (bb instanceof AABB) {
+			AABB ab = (AABB) bb;
+			GL11.glBegin(GL11.GL_QUADS);
+			GL11.glVertex3f(ab.max.x, ab.min.y, ab.max.z);
+			GL11.glVertex3f(ab.max.x, ab.min.y, ab.min.z);
+			GL11.glVertex3f(ab.max.x, ab.max.y, ab.min.z);
+			GL11.glVertex3f(ab.max.x, ab.max.y, ab.max.z);
+
+			GL11.glVertex3f(ab.max.x, ab.max.y, ab.max.z);
+			GL11.glVertex3f(ab.max.x, ab.max.y, ab.min.z);
+			GL11.glVertex3f(ab.min.x, ab.max.y, ab.min.z);
+			GL11.glVertex3f(ab.min.x, ab.max.y, ab.max.z);
+
+			GL11.glVertex3f(ab.max.x, ab.max.y, ab.max.z);
+			GL11.glVertex3f(ab.min.x, ab.max.y, ab.max.z);
+			GL11.glVertex3f(ab.min.x, ab.min.y, ab.max.z);
+			GL11.glVertex3f(ab.max.x, ab.min.y, ab.max.z);
+
+			GL11.glVertex3f(ab.min.x, ab.min.y, ab.max.z);
+			GL11.glVertex3f(ab.min.x, ab.max.y, ab.max.z);
+			GL11.glVertex3f(ab.min.x, ab.max.y, ab.min.z);
+			GL11.glVertex3f(ab.min.x, ab.min.y, ab.min.z);
+
+			GL11.glVertex3f(ab.min.x, ab.min.y, ab.max.z);
+			GL11.glVertex3f(ab.min.x, ab.min.y, ab.min.z);
+			GL11.glVertex3f(ab.max.x, ab.min.y, ab.min.z);
+			GL11.glVertex3f(ab.max.x, ab.min.y, ab.max.z);
+
+			GL11.glVertex3f(ab.min.x, ab.min.y, ab.min.z);
+			GL11.glVertex3f(ab.min.x, ab.max.y, ab.min.z);
+			GL11.glVertex3f(ab.max.x, ab.max.y, ab.min.z);
+			GL11.glVertex3f(ab.max.x, ab.min.y, ab.min.z);
+			GL11.glEnd();
+		} else if (bb instanceof CompositeArea) {
+			for (BoundingArea j : ((CompositeArea) bb).areas) {
+				renderBB(j);
+			}
+		}
+	}
+
+	public void boneBB(Bone b) {
+		if (b.boundingBox != null) {
+			renderBB(b.boundingBox);
+		}
+		for (Bone c : b.getChildren()) {
+			boneBB(c);
+		}
 	}
 
 	private void unloadBone(Bone b) {
